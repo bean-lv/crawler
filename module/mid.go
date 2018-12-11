@@ -8,13 +8,13 @@ import (
 	"strings"
 )
 
-// MID 组件ID
+// MID 组件ID。
 type MID string
 
-// midTemplate 组件ID模板
+// midTemplate 组件ID模板。
 var midTemplate = "%s%d|%s"
 
-// GenMID 根据给定参数生成组件ID
+// GenMID 根据给定参数生成组件ID。
 func GenMID(moduleType Type, sn uint64, addr net.Addr) (MID, error) {
 	if !LegalType(moduleType) {
 		errMsg := fmt.Sprintf("illegal module type: %s", moduleType)
@@ -31,7 +31,7 @@ func GenMID(moduleType Type, sn uint64, addr net.Addr) (MID, error) {
 	return MID(midStr), nil
 }
 
-// LegalMID 判断组件ID是否合法
+// LegalMID 判断组件ID是否合法。
 func LegalMID(mid MID) bool {
 	if _, err := SplitMID(mid); err == nil {
 		return true
@@ -39,10 +39,10 @@ func LegalMID(mid MID) bool {
 	return false
 }
 
-// SplitMID 分解组件ID
-// 第二个结果值表示是否分解成功
-// 若分解成功，第一个结果值长度为3
-// 依次包含类型字母、序列号、组件网络地址（如果有的话）
+// SplitMID 分解组件ID。
+// 第二个结果值表示是否分解成功。
+// 若分解成功，第一个结果值长度为3。
+// 依次包含类型字母、序列号、组件网络地址（如果有的话）。
 func SplitMID(mid MID) ([]string, error) {
 	var ok bool
 	var letter, snStr, addr string
@@ -90,7 +90,7 @@ func SplitMID(mid MID) ([]string, error) {
 	return []string{letter, snStr, addr}, nil
 }
 
-// legalSN 判断序列号的合法性
+// legalSN 判断序列号的合法性。
 func legalSN(snStr string) bool {
 	_, err := strconv.ParseUint(snStr, 10, 64)
 	if err != nil {
