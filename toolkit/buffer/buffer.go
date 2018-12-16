@@ -97,9 +97,8 @@ func (buf *myBuffer) Close() bool {
 
 func (buf *myBuffer) Closed() bool {
 	if atomic.LoadUint32(&buf.closed) == 0 {
-		return false.
+		return false
 
 	}
 	return true
 }
-

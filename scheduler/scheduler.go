@@ -1,7 +1,12 @@
 package scheduler
 
 import (
+	"BeanGithub/crawler/module"
+	"BeanGithub/crawler/toolkit/buffer"
+	"context"
+	"fmt"
 	"net/http"
+	"sync"
 )
 
 // Scheduler 调度器的接口类型。
@@ -29,4 +34,148 @@ type Scheduler interface {
 	Idle() bool
 	// Summary 获取摘要实例。
 	Summary() SchedSummary
+}
+
+// NewScheduler 创建一个调度器实例。
+// func NewScheduler() Scheduler {
+// 	return &myScheduler{}
+// }
+
+// myScheduler 调度器的实现类型。
+type myScheduler struct {
+	// maxDepth 爬取的最大深度。首次请求的深度为0。
+	maxDepth uint32
+	// acceptedDomainMap 可以接受的URL的主域名的字典。
+	acceptedDomainMap sync.Map
+	// registrar 组件注册器。
+	registrar module.Registrar
+	// reqBufferPool 请求缓冲池。
+	reqBufferPool buffer.Pool
+	// respBufferPool 响应缓冲池。
+	respBufferPool buffer.Pool
+	// itemBufferPool 条目缓冲池。
+	itemBufferPool buffer.Pool
+	// errorBufferPool 错误缓冲池。
+	errorBufferPool buffer.Pool
+	// urlMap 已处理的URL的字典。
+	urlMap sync.Map
+	// ctx 上下文，用于感知调度器的停止。
+	ctx context.Context
+	// cancelFunc 取消函数，用于停止调度器。
+	cancelFunc context.CancelFunc
+	// status 状态。
+	status Status
+	// statusLock 专用于状态的读写锁。
+	statusLock sync.RWMutex
+	// summary 摘要信息。
+	summary SchedSummary
+}
+
+func (sched *myScheduler) Init(
+	requestArgs RequestArgs,
+	dataArgs DataArgs,
+	moduleArgs ModuleArgs) (err error) {
+
+	// 检查状态。
+	fmt.Println("Check status for initialization...")
+	var oldStatus Status
+	oldStatus, err = sched.checkAndSetStatus(SCHED_STATUS_INITIALIZING)
+	if err != nil {
+		return
+	}
+	defer func() {
+		sched.statusLock.Lock()
+		if err != nil {
+			sched.status = oldStatus
+		} else {
+			sched.status = SCHED_STATUS_INITIALIZED
+		}
+		sched.statusLock.Unlock()
+	}()
+
+	// 检查参数。
+	fmt.Println("Check request arguments...")
+	if err = requestArgs.Check(); err != nil {
+		return
+	}
+	fmt.Println("Request arguments are valid.")
+	fmt.Println("Check data arguments...")
+	if err = dataArgs.Check(); err != nil {
+		return
+	}
+	fmt.Println("Data arguments are valid.")
+	fmt.Println("Check module arguments...")
+	if err = moduleArgs.Check(); err != nil {
+		return
+	}
+	fmt.Println("Module arguments are valid.")
+
+	// 初始化内部字段。
+	fmt.Println("Initialize scheduler's fields...")
+	if sched.registrar == nil {
+		sched.registrar = module.NewRegistrar()
+	} else {
+		sched.registrar.Clear()
+	}
+	sched.maxDepth = requestArgs.MaxDepth
+	fmt.Printf("-- Max depth: %d", sched.maxDepth)
+	sched.acceptedDomainMap = sync.Map{}
+	for _, domain := range requestArgs.AcceptedDomains {
+		sched.acceptedDomainMap.Store(domain, struct{}{})
+	}
+	fmt.Printf("-- Accepted primary domains: %v",
+		requestArgs.AcceptedDomains)
+	sched.urlMap = sync.Map{}
+	sched.initBufferPool(dataArgs)
+	sched.resetContext()
+	sched.summary = newSchedSummary(requestArgs, dataArgs, moduleArgs, sched)
+
+	// 注册组件。
+	fmt.Println("Register modules...")
+	if err = sched.registerModules(moduleArgs); err != nil {
+		return
+	}
+	fmt.Println("Scheduler has been initialized.")
+	return
+}
+
+func (sched *myScheduler) Start(firstHTTPReq *http.Request) (err error) {
+	return
+}
+
+func (sched *myScheduler) Stop(err error) {
+	return
+}
+
+func (sched *myScheduler) Status() Status {
+	return 0
+}
+
+func (sched *myScheduler) ErrorChan() <-chan error {
+	return nil
+}
+
+func (sched *myScheduler) Idle() bool {
+	return false
+}
+
+func (sched *myScheduler) Summary() SchedSummary {
+	return nil
+}
+
+// checkAndSetStatus 用于状态的检查，并在条件满足时设置状态。
+func (sched *myScheduler) checkAndSetStatus(wantedStatus Status) (oldStatus Status, err error) {
+	return
+}
+
+func (sched *myScheduler) initBufferPool(dataArgs DataArgs) {
+
+}
+
+func (sched *myScheduler) resetContext() {
+
+}
+
+func (sched *myScheduler) registerModules(moduleArgs ModuleArgs) error {
+	return nil
 }

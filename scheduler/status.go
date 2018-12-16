@@ -19,3 +19,25 @@ const (
 	// SCHED_STATUS_STOPPED 已停止。
 	SCHED_STATUS_STOPPED Status = 6
 )
+
+// GetStatusDescription 获取状态的文字描述。
+func GetStatusDescription(status Status) string {
+	switch status {
+	case SCHED_STATUS_UNINITIALIZED:
+		return "uninitialized"
+	case SCHED_STATUS_INITIALIZING:
+		return "initializing"
+	case SCHED_STATUS_INITIALIZED:
+		return "initialized"
+	case SCHED_STATUS_STARTING:
+		return "starting"
+	case SCHED_STATUS_STARTED:
+		return "started"
+	case SCHED_STATUS_STOPPING:
+		return "stopping"
+	case SCHED_STATUS_STOPPED:
+		return "stopped"
+	default:
+		return "unknown"
+	}
+}
