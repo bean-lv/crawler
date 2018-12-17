@@ -164,18 +164,107 @@ func (sched *myScheduler) Summary() SchedSummary {
 }
 
 // checkAndSetStatus 用于状态的检查，并在条件满足时设置状态。
-func (sched *myScheduler) checkAndSetStatus(wantedStatus Status) (oldStatus Status, err error) {
+func (sched *myScheduler) checkAndSetStatus(
+	wantedStatus Status) (oldStatus Status, err error) {
+	sched.statusLock.Lock()
+	defer sched.statusLock.Unlock()
+	oldStatus = sched.status
+	err = checkStatus(oldStatus, wantedStatus, nil)
+	if err == nil {
+		sched.status = wantedStatus
+	}
 	return
 }
 
+// initBufferPool 按照给定的参数初始化缓冲池。
+// 如果某个缓冲池可用且未关闭，就先关闭该缓冲池。
 func (sched *myScheduler) initBufferPool(dataArgs DataArgs) {
-
+	// 初始化请求缓冲池。
+	if sched.reqBufferPool != nil && !sched.reqBufferPool.Closed() {
+		sched.reqBufferPool.Close()
+	}
+	sched.reqBufferPool, _ = buffer.NewPool(
+		dataArgs.ReqBufferCap, dataArgs.ReqMaxBufferNumber)
+	fmt.Printf("-- Request buffer pool: bufferCap: %d, maxBufferNumber: %d",
+		sched.reqBufferPool.BufferCap(), sched.reqBufferPool.MaxBufferNumber())
+	// 初始化响应缓冲池。
+	if sched.respBufferPool != nil && !sched.respBufferPool.Closed() {
+		sched.respBufferPool.Close()
+	}
+	sched.respBufferPool, _ = buffer.NewPool(
+		dataArgs.RespBufferCap, dataArgs.RespMaxBufferNumber)
+	fmt.Printf("-- Response buffer pool: bufferCap: %d, maxBufferNumber: %d",
+		sched.respBufferPool.BufferCap(), sched.respBufferPool.MaxBufferNumber())
+	// 初始化条目缓冲池。
+	if sched.itemBufferPool != nil && !sched.itemBufferPool.Closed() {
+		sched.itemBufferPool.Close()
+	}
+	sched.itemBufferPool, _ = buffer.NewPool(
+		dataArgs.ItemBufferCap, dataArgs.ItemMaxBufferNumber)
+	fmt.Printf("-- Item buffer pool: bufferCap: %d, maxBufferNumber: %d",
+		sched.itemBufferPool.BufferCap(), sched.itemBufferPool.MaxBufferNumber())
+	// 初始化错误缓冲池。
+	if sched.errorBufferPool != nil && !sched.errorBufferPool.Closed() {
+		sched.errorBufferPool.Close()
+	}
+	sched.errorBufferPool, _ = buffer.NewPool(
+		dataArgs.ErrorBufferCap, dataArgs.ErrorMaxBufferNumber)
+	fmt.Printf("-- Error buffer pool: bufferCap: %d, maxBufferNumber: %d",
+		sched.errorBufferPool.BufferCap(), sched.errorBufferPool.MaxBufferNumber())
 }
 
+// resetContext 重置调度器的上下文。
 func (sched *myScheduler) resetContext() {
-
+	sched.ctx, sched.cancelFunc = context.WithCancel(context.Background())
 }
 
+// registerModules 注册所有给定的组件。
 func (sched *myScheduler) registerModules(moduleArgs ModuleArgs) error {
+	for _, d := range moduleArgs.Downloaders {
+		if d == nil {
+			continue
+		}
+		ok, err := sched.registrar.Register(d)
+		if err != nil {
+			return genErrorByError(err)
+		}
+		if !ok {
+			errMsg := fmt.Sprintf("Couldn't register downloader instance with MID %q!", d.ID())
+			return genError(errMsg)
+		}
+		fmt.Printf("All downloaders have been registered. (number: %d)",
+			len(moduleArgs.Downloaders))
+		for _, a := range moduleArgs.Analyzers {
+			if a == nil {
+				continue
+			}
+			ok, err := sched.registrar.Register(a)
+			if err != nil {
+				return genErrorByError(err)
+			}
+			if !ok {
+				errMsg := fmt.Sprintf("Couldn't register analyzer instance with MID %q!", a.ID())
+				return genError(errMsg)
+			}
+		}
+		fmt.Printf("All analyzers have been registered. (number: %d)",
+			len(moduleArgs.Analyzers))
+		for _, p := range moduleArgs.Pipelines {
+			if p == nil {
+				continue
+			}
+			ok, err := sched.registrar.Register(p)
+			if err != nil {
+				return genErrorByError(err)
+			}
+			if !ok {
+				errMsg := fmt.Sprintf("Couldn't register pipeline instance with MID %q!", p.ID())
+				return genError(errMsg)
+			}
+		}
+		fmt.Printf("All pipelines have been registered. (number: %d)",
+			len(moduleArgs.Pipelines))
+		return nil
+	}
 	return nil
 }
