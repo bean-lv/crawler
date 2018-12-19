@@ -39,9 +39,9 @@ type Scheduler interface {
 }
 
 // NewScheduler 创建一个调度器实例。
-// func NewScheduler() Scheduler {
-// 	return &myScheduler{}
-// }
+func NewScheduler() Scheduler {
+	return &myScheduler{}
+}
 
 // myScheduler 调度器的实现类型。
 type myScheduler struct {
@@ -198,24 +198,89 @@ func (sched *myScheduler) Start(firstHTTPReq *http.Request) (err error) {
 	return
 }
 
-func (sched *myScheduler) Stop(err error) {
+func (sched *myScheduler) Stop() (err error) {
+	fmt.Println("Stop scheduler...")
+	// 检查状态。
+	fmt.Println("Check status for stop...")
+	var oldStatus Status
+	oldStatus, err = sched.checkAndSetStatus(SCHED_STATUS_STOPPING)
+	defer func() {
+		sched.statusLock.Lock()
+		if err != nil {
+			sched.status = oldStatus
+		} else {
+			sched.status = SCHED_STATUS_STOPPED
+		}
+		sched.statusLock.Unlock()
+	}()
+	if err != nil {
+		return
+	}
+	sched.cancelFunc()
+	sched.reqBufferPool.Close()
+	sched.respBufferPool.Close()
+	sched.itemBufferPool.Close()
+	sched.errorBufferPool.Close()
+	fmt.Println("Scheduler has been stopped.")
 	return
 }
 
 func (sched *myScheduler) Status() Status {
-	return 0
+	var status Status
+	sched.statusLock.RLock()
+	status = sched.status
+	sched.statusLock.RUnlock()
+	return status
 }
 
 func (sched *myScheduler) ErrorChan() <-chan error {
-	return nil
+	errBuffer := sched.errorBufferPool
+	errCh := make(chan error, errBuffer.BufferCap())
+	go func(errBuffer buffer.Pool, errCh chan error) {
+		for {
+			if sched.canceled() {
+				close(errCh)
+				break
+			}
+			datum, err := errBuffer.Get()
+			if err != nil {
+				fmt.Println("The error buffer pool was closed. Break error reception.")
+				close(errCh)
+				break
+			}
+			err, ok := datum.(error)
+			if !ok {
+				errMsg := fmt.Sprintf("incorrect error type: %T", datum)
+				sendError(errors.New(errMsg), "", sched.errorBufferPool)
+				continue
+			}
+			if sched.canceled() {
+				close(errCh)
+				break
+			}
+			errCh <- err
+		}
+	}(errBuffer, errCh)
+	return errCh
 }
 
 func (sched *myScheduler) Idle() bool {
-	return false
+	moduleMap := sched.registrar.GetAll()
+	for _, module := range moduleMap {
+		if module.HandlingNumber() > 0 {
+			return false
+		}
+	}
+	if sched.reqBufferPool.Total() > 0 ||
+		sched.respBufferPool.Total() > 0 ||
+		sched.itemBufferPool.Total() > 0 {
+		return false
+	}
+	return true
 }
 
 func (sched *myScheduler) Summary() SchedSummary {
-	return nil
+	return sched.summary
 }
 
 // checkAndSetStatus 用于状态的检查，并在条件满足时设置状态。
