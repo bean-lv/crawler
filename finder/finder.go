@@ -32,3 +32,33 @@ func Usage() {
 	fmt.Fprintf(os.Stderr, "Flags:\n")
 	flag.PrintDefaults()
 }
+
+func main() {
+	// flag.Usage = Usage
+	// flag.Parse()
+	// // 创建调度器。
+	// scheduler := sched.NewScheduler()
+	// // 准备调度器的初始化参数。
+	// domainPargs := strings.Split(domains, ",")
+	// acceptedDomains := []string{}
+	// for _, domain := range domainPargs {
+	// 	domain = strings.TrimSpace(domain)
+	// 	if domain != "" {
+	// 		acceptedDomains = append(acceptedDomains, domain)
+	// 	}
+	// }
+	// requestArgs := sched.RequestArgs{
+	// 	AcceptedDomains: acceptedDomains,
+	// 	MaxDepth:        uint32(depth),
+	// }
+	// dataArgs := sched.DataArgs{
+	// 	ReqBufferCap:         50,
+	// 	ReqMaxBufferNumber:   1000,
+	// 	RespBufferCap:        50,
+	// 	RespMaxBufferNumber:  10,
+	// 	ItemBufferCap:        50,
+	// 	ItemMaxBufferNumber:  100,
+	// 	ErrorBufferCap:       50,
+	// 	ErrorMaxBufferNumber: 1,
+	// }
+}
